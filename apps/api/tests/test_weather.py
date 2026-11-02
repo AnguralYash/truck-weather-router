@@ -142,3 +142,32 @@ def test_forecast_window_covers_trip_and_slider() -> None:
 
     assert start == START
     assert end == START + timedelta(hours=58)
+
+
+def test_weather_retries_when_the_service_is_overloaded() -> None:
+    answers = iter(
+        [
+            httpx.Response(503, json={"reason": "overloaded"}),
+            httpx.Response(200, json=location([1], [0], [0], [0])),
+        ]
+    )
+    client = httpx.Client(transport=httpx.MockTransport(lambda _request: next(answers)))
+
+    series = fetch_hourly([LatLon(41, -87)], START, START, client)
+
+    assert len(series) == 1
+
+
+def test_timezone_is_looked_up_once_per_place() -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url)
+        return httpx.Response(200, json={"timezone": "America/Chicago"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    lookup_timezone(LatLon(41.8781, -87.6298), client)
+    lookup_timezone(LatLon(41.8779, -87.6301), client)
+
+    assert len(calls) == 1

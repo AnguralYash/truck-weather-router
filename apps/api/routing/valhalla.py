@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import httpx
 
 from .geometry import LatLon, decode_polyline
+from .http import send_with_retry
 
 VALHALLA_URL = "https://valhalla1.openstreetmap.de/route"
 USER_AGENT = "truck-weather-router/0.1"
@@ -48,7 +49,7 @@ def fetch_routes(
     owns_client = client is None
     http = client or httpx.Client(timeout=45, headers={"User-Agent": USER_AGENT})
     try:
-        response = http.post(VALHALLA_URL, json=body)
+        response = send_with_retry(lambda: http.post(VALHALLA_URL, json=body))
     except httpx.HTTPError as error:
         raise RoutingError("The routing service is not reachable.") from error
     finally:
