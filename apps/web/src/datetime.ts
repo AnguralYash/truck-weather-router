@@ -49,3 +49,14 @@ export function bookableDays(now: Date = new Date()): { first: Date; last: Date 
   const last = new Date(first.getFullYear(), first.getMonth(), first.getDate() + MAX_DAYS_AHEAD)
   return { first, last }
 }
+
+/** An arrival time shown in the origin's time zone, e.g. "Tue, 1:10 PM CST". */
+export function formatEta(isoUtc: string, timeZone: string): string {
+  return new Date(isoUtc).toLocaleString('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
+}

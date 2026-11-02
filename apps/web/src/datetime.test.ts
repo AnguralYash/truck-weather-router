@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { TIME_SLOTS, defaultDeparture, formatDeparture, parseDeparture, toDeparture } from './datetime'
+import {
+  TIME_SLOTS,
+  defaultDeparture,
+  formatDeparture,
+  formatEta,
+  parseDeparture,
+  toDeparture,
+} from './datetime'
 
 describe('departure helpers', () => {
   it('round-trips a departure string', () => {
@@ -20,5 +27,13 @@ describe('departure helpers', () => {
     expect(TIME_SLOTS).toHaveLength(48)
     expect(TIME_SLOTS[0]).toEqual({ value: '00:00', label: '12:00 AM' })
     expect(TIME_SLOTS[27]).toEqual({ value: '13:30', label: '1:30 PM' })
+  })
+})
+
+describe('formatEta', () => {
+  it('shows the arrival in the given time zone', () => {
+    const text = formatEta('2026-11-03T19:10:00+00:00', 'America/Chicago')
+
+    expect(text).toMatch(/^Tue, 1:10\sPM CST$/)
   })
 })
