@@ -101,5 +101,90 @@ they were made. The brief leaves several points open; each is resolved here.
   weather locations for the heatmap.
 - **Route geometry is thinned** to points at least half a mile apart before it
   is sent to the browser, which keeps responses small.
+- **Every route card says why it ranked where it did.** The recommended route is
+  explained against the runner-up and the others against the recommended one,
+  naming the first criterion in the brief's order on which they differ. Drive
+  time is the last tiebreaker, and the cards round to minutes, so a note such as
+  "quicker by 12 s" explains a pick that otherwise looks like a tie.
+- **The ranking stays strictly in the brief's order, even for near-ties.** When
+  two routes carry the same weather risk and differ by under two minutes, the
+  faster one still wins, but its note says the routes are "effectively a tie".
+  A tolerance was considered and rejected: it would depart from the brief's
+  stated order and add a rule that needs its own justification.
+- **Calls to the routing and weather services are retried.** Network errors and
+  overloaded responses (HTTP 429, 500, 502, 503, 504) are retried twice, after
+  half a second and then one second. The weather service returned "overloaded"
+  during development, and without retries a good trip would have failed. Other
+  errors are reported straight away.
+- **Time zone lookups are remembered** for the life of the server process, keyed
+  to about a kilometre, which removes one outside call from repeat trips.
 - **Errors use stable codes** (for example `trip_too_long`, `departure_in_past`)
   so the interface can show a clear message for each.
+
+## Interface
+
+- **A landing page explains the product before anything else.** A short hero
+  (headline, one sentence, three "how it works" steps) sits above a centered
+  trip form, so a first-time visitor knows what the tool does.
+- **The map appears only once there is something to show.** After a successful
+  plan, the page animates into a results view: a side panel with a compact trip
+  summary and the route cards, and the map filling the rest. "Edit trip" opens
+  the form in place, prefilled. On narrow screens the panel stacks above the map.
+- **The user stays on the form while planning.** Planning takes a few seconds;
+  the button shows progress steps, and if planning fails the error appears next
+  to the form instead of on an empty map.
+- **A custom date and time picker replaces the browser's own**, whose popup
+  cannot be styled. It only offers days the forecast can cover and 30-minute
+  time slots.
+- **Motion is short and purposeful** (entrance fades, the panel sliding in) and
+  is switched off when the system asks for reduced motion.
+- **Each route has its own color, and checkpoint dots show risk.** The
+  recommended route is drawn thicker and carries a badge. Risk colors are used
+  only for checkpoint dots and the heatmap, so the two never get confused.
+- **Checkpoint details open in a popup on the map** (arrival time, wind, rain,
+  snow, risk level). Route cards stay short: distance, travel time, miles at
+  each risk level, and warnings.
+- **One route is selected at a time**, starting with the recommended one. It is
+  drawn thickest and on top, the others are thinner and faded but still visible,
+  and only the selected route's checkpoint dots are shown. Clicking a route card
+  or a route line on the map changes the selection.
+- **Checkpoint details open in a popup built with DOM calls**, not an HTML
+  string, so nothing from the API is ever parsed as markup.
+- **The map code is loaded only when results are shown**, so the landing page
+  stays light (MapLibre is the largest dependency).
+- **MapLibre's worker is bundled through Vite and passed in explicitly.** The
+  library locates its worker from a file path that Vite's production build does
+  not copy, which left the map blank in production but not in development.
+- **The map frames the whole trip as soon as its style is ready**, not when every
+  background tile has arrived, and keeps framing it as the page animates in. It
+  stops once the user pans or zooms, and frames the trip again after a new plan.
+- **Checkpoints preview on hover and pin on click.** Hover is a convenience for
+  mouse users; click works everywhere, including touch screens.
+- **Overlapping routes never fight over a click.** Clicking a checkpoint never
+  changes the selected route, and clicking a stretch of road the selected route
+  already covers keeps it selected, so shared roads can be inspected.
+- **If the background map cannot load**, routes and checkpoints are still drawn
+  on a plain background, with a short note.
+- **Place search runs in the browser** against Photon with a short delay after
+  typing, so the Django API only does the planning.
+
+## Future improvements
+
+These were considered and left out on purpose, to keep the project correct and
+clear rather than broad.
+
+- **Treat near-equal travel times as a tie.** Today, two routes with the same
+  weather risk are separated by travel time even when it is a few seconds. The
+  cards already say "effectively a tie" in that case. A later version could
+  treat times within a margin (for example five minutes) as equal and then
+  prefer the shorter distance. This departs from the order given in the brief,
+  so it should be agreed with whoever owns the ranking rules first.
+- **Truck-specific routing.** Routes use the standard truck profile with default
+  vehicle dimensions. A provider that accepts the real weight, height, and
+  hazardous-goods class would avoid low bridges and weight-limited roads.
+- **Local time at every checkpoint.** Arrival times are shown in the origin's
+  time zone. Showing each checkpoint in its own local time would be clearer on
+  trips that cross zones.
+- **Trips beyond the routing service's range and outside the US.** The public
+  routing server refuses trips over about 1,500 km, and the risk table uses
+  US units.

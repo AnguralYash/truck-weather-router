@@ -89,3 +89,15 @@ def test_network_failure_becomes_a_routing_error() -> None:
 
     with pytest.raises(RoutingError):
         fetch_routes(A, B, client=client)
+
+
+def test_routing_retries_a_busy_server() -> None:
+    answers = iter(
+        [
+            httpx.Response(503, json={}),
+            httpx.Response(200, json={"trip": trip([A, B], 90, 5_000)}),
+        ]
+    )
+    client = httpx.Client(transport=httpx.MockTransport(lambda _request: next(answers)))
+
+    assert len(fetch_routes(A, B, client=client)) == 1

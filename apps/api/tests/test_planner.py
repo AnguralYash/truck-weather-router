@@ -217,3 +217,19 @@ def test_departure_exactly_at_now_is_allowed() -> None:
         weather_fn=weather_by_latitude(),
         timezone_fn=chicago,
     )
+
+
+def test_every_route_says_why_it_ranked_where_it_did() -> None:
+    routes = [straight_route(40.5), straight_route(40.0)]
+
+    result = plan(request(), routes, weather_by_latitude(windy_above=40.25))
+
+    best, trailing = result["routes"]
+    assert best["ranking_note"].startswith("Avoids No Travel conditions")
+    assert "No Travel" in trailing["ranking_note"]
+
+
+def test_a_single_route_has_no_ranking_note() -> None:
+    result = plan(request(), [straight_route(40.0)])
+
+    assert result["routes"][0]["ranking_note"] is None

@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from .geometry import LatLon
+from .http import send_with_retry
 from .risk import Weather
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -78,7 +79,7 @@ def _fetch_batch(
         "end_date": end.astimezone(UTC).date().isoformat(),
     }
     try:
-        response = http.get(FORECAST_URL, params=params)
+        response = send_with_retry(lambda: http.get(FORECAST_URL, params=params))
         response.raise_for_status()
         payload = response.json()
     except (httpx.HTTPError, ValueError) as error:
@@ -105,8 +106,17 @@ def _number(value: float | None) -> float:
     return 0.0 if value is None else float(value)
 
 
+_TIMEZONES: dict[tuple[float, float], ZoneInfo] = {}
+
+
 def lookup_timezone(point: LatLon, client: httpx.Client | None = None) -> ZoneInfo:
-    """The IANA time zone at a location, used to read the local departure time."""
+    """The IANA time zone at a location, used to read the local departure time.
+
+    Results are kept for the life of the process, keyed to about a kilometre.
+    """
+    key = (round(point.lat, 2), round(point.lon, 2))
+    if key in _TIMEZONES:
+        return _TIMEZONES[key]
     params = {
         "latitude": f"{point.lat:.4f}",
         "longitude": f"{point.lon:.4f}",
@@ -116,14 +126,16 @@ def lookup_timezone(point: LatLon, client: httpx.Client | None = None) -> ZoneIn
     }
     http = client or httpx.Client(timeout=15)
     try:
-        response = http.get(FORECAST_URL, params=params)
+        response = send_with_retry(lambda: http.get(FORECAST_URL, params=params))
         response.raise_for_status()
-        return ZoneInfo(response.json()["timezone"])
+        zone = ZoneInfo(response.json()["timezone"])
     except (httpx.HTTPError, ValueError, KeyError) as error:
         raise WeatherError("The time zone could not be determined.") from error
     finally:
         if client is None:
             http.close()
+    _TIMEZONES[key] = zone
+    return zone
 
 
 def forecast_window(
