@@ -8,6 +8,9 @@ they were made. The brief leaves several points open; each is resolved here.
 - **US trips only.** The risk table uses US units (mph, inches per hour). The
   routing and weather providers work worldwide, but the thresholds are not
   defined for other regions.
+- **The departure time is in the origin's local time.** The US spans several
+  time zones and drivers plan in the time of the place they leave from. The form
+  labels the zone, and the API converts the time to UTC before sampling weather.
 - **Departure must be between now and the forecast range.** Past or
   out-of-range departures are rejected with a clear message instead of
   producing partial weather data.
@@ -20,6 +23,13 @@ they were made. The brief leaves several points open; each is resolved here.
   checkpoint, not at departure time.
 - **A checkpoint's risk is the worst of its wind, rain, and snow levels**,
   after the load-weight rules are applied.
+- **Boundary values go to the higher level.** The brief's table overlaps at
+  some values (rain "0.10-0.25" and "0.25-0.50"), so rain at 0.25 in/hr is High
+  and at 0.50 is Severe. No Travel needs strictly more than 1.00 in/hr of rain
+  or 3.0 in/hr of snow, and wind at or above 55 mph, as written in the brief.
+- **Load rules only raise a level, never lower it.** Wind of 45 mph or more
+  with a load over 30,000 lb is No Travel. Wind of 35 mph or more with a load
+  over 40,000 lb is at least Severe.
 - **Risk levels are scored 1-5** (Low, Moderate, High, Severe, No Travel) to
   compute an average.
 - **Each checkpoint covers the stretch halfway to its neighbours.** These
@@ -37,6 +47,11 @@ they were made. The brief leaves several points open; each is resolved here.
 ## Heatmap
 
 - **The 0-48 hour slider counts from the departure time.**
+- **The heatmap shows risk level**, using the same thresholds, load rules, and
+  colors as the route scoring, so the map and the recommendation agree.
+- **The forecast for each heatmap point is fetched once**, for all 48 hours.
+  Moving the slider only changes which hour is displayed, so it never waits on
+  the network.
 
 ## Architecture
 
@@ -58,6 +73,9 @@ they were made. The brief leaves several points open; each is resolved here.
   Requests are debounced to respect the public server's fair-use limits, and
   duplicate results (same name and state) are collapsed. Alaska and Hawaii are
   out of scope.
+- **Map:** MapLibre GL with the OpenFreeMap "liberty" style, which needs no key.
+  It is a free community service; if it were unavailable the background would
+  be blank, but routes, checkpoints, and the heatmap would still draw.
 - **Known routing limits:** the public Valhalla server rejects trips over about
   1,500 km, and may return fewer than three routes on short trips. The app
   shows a clear message for the first case and displays however many routes
