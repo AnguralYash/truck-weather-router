@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { formatDeparture } from '../datetime'
 import { formatPounds } from '../format'
 import { routeColor, routeNumber } from '../risk'
@@ -6,6 +6,8 @@ import type { PlanRequest, PlanResponse } from '../types'
 import { BrandMark } from './BrandMark'
 import { RouteCard } from './RouteCard'
 import { TripForm } from './TripForm'
+
+const MapView = lazy(() => import('./MapView').then((module) => ({ default: module.MapView })))
 
 interface Props {
   request: PlanRequest
@@ -18,6 +20,10 @@ interface Props {
 
 export function ResultsView({ request, result, busy, busyLabel, error, onPlan }: Props) {
   const [editing, setEditing] = useState(false)
+  const [choice, setChoice] = useState<{ result: PlanResponse; id: string } | null>(null)
+  // A new result starts again on its recommended route.
+  const selectedId = choice?.result === result ? choice.id : result.recommended_route_id
+  const select = (id: string) => setChoice({ result, id })
 
   const replan = async (next: PlanRequest) => {
     if (await onPlan(next)) setEditing(false)
@@ -78,6 +84,8 @@ export function ResultsView({ request, result, busy, busyLabel, error, onPlan }:
                   route={route}
                   name={`Route ${routeNumber(route.id)}`}
                   color={routeColor(route.id)}
+                  selected={route.id === selectedId}
+                  onSelect={() => select(route.id)}
                 />
               </div>
             ))}
@@ -85,7 +93,14 @@ export function ResultsView({ request, result, busy, busyLabel, error, onPlan }:
         </div>
       </aside>
       <main className="map-area" aria-label="Map">
-        <p className="map-empty">The map is added in the next step.</p>
+        <Suspense fallback={<p className="map-empty">Loading map…</p>}>
+          <MapView
+            routes={result.routes}
+            selectedId={selectedId}
+            timezone={result.timezone}
+            onSelect={select}
+          />
+        </Suspense>
       </main>
     </div>
   )

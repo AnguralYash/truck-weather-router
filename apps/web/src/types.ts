@@ -45,6 +45,8 @@ export interface Route {
   geometry: [number, number][]
   checkpoints: Checkpoint[]
   summary: RouteSummary
+  /** Why the route ranked where it did, or null when it is the only route. */
+  ranking_note: string | null
 }
 
 export interface HeatmapCell {

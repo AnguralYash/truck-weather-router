@@ -6,15 +6,22 @@ interface Props {
   route: Route
   name: string
   color: string
+  selected: boolean
+  onSelect: () => void
 }
 
-export function RouteCard({ route, name, color }: Props) {
+export function RouteCard({ route, name, color, selected, onSelect }: Props) {
   const { summary } = route
+  const classes = ['route-card', route.recommended && 'recommended', selected && 'selected']
   return (
-    <article className={route.recommended ? 'route-card recommended' : 'route-card'}>
+    <article className={classes.filter(Boolean).join(' ')}>
       <header>
         <span className="swatch" style={{ background: color }} aria-hidden="true" />
-        <h3>{name}</h3>
+        <h3>
+          <button type="button" className="route-select" aria-pressed={selected} onClick={onSelect}>
+            {name}
+          </button>
+        </h3>
         {route.recommended && <span className="badge">Recommended</span>}
       </header>
       <dl className="route-stats">
@@ -32,6 +39,12 @@ export function RouteCard({ route, name, color }: Props) {
         </div>
       </dl>
       <RiskBar milesByLevel={summary.miles_by_level} />
+      {route.ranking_note && (
+        <p className="ranking-note">
+          {route.recommended && <strong>Why recommended: </strong>}
+          {route.ranking_note}
+        </p>
+      )}
       {summary.has_no_travel && (
         <p className="warning">Includes No Travel conditions. Avoid unless no other option.</p>
       )}

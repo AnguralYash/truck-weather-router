@@ -881,3 +881,207 @@ button.secondary:hover {
     overflow: visible;
   }
 }
+
+/* ---------- Map ---------- */
+
+.map-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+/* MapLibre's own stylesheet makes its container position: relative, so size it explicitly. */
+.map-wrap .map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.map-legend {
+  position: absolute;
+  left: 14px;
+  bottom: 28px;
+  z-index: 2;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  background: rgb(255 255 255 / 94%);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgb(5 43 54 / 18%);
+  backdrop-filter: blur(6px);
+  animation: rise 0.5s var(--ease-out) 0.4s both;
+}
+
+.map-legend strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--teal-800);
+}
+
+.map-legend ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.map-legend i {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 20%);
+}
+
+.map-note {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.map-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--teal-950);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
+}
+
+.maplibregl-popup-content {
+  padding: 12px 14px;
+  font-family: inherit;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(5 43 54 / 28%);
+}
+
+.maplibregl-popup-close-button {
+  padding: 2px 8px;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.popup {
+  min-width: 190px;
+  font-size: 0.85rem;
+}
+
+.popup strong {
+  font-size: 1rem;
+}
+
+.popup-eta {
+  margin: 2px 0 8px;
+  color: var(--muted);
+}
+
+.popup-overall {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 999px;
+}
+
+.popup-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.popup-row span:first-child {
+  color: var(--muted);
+}
+
+.popup-badge {
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 999px;
+}
+
+.route-card {
+  position: relative;
+}
+
+.route-select {
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.route-select::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+}
+
+.route-select:focus-visible {
+  box-shadow: none;
+}
+
+.route-card:has(.route-select:focus-visible) {
+  box-shadow: 0 0 0 3px rgb(17 120 143 / 35%);
+}
+
+.route-card:hover {
+  border-color: var(--teal-600);
+}
+
+.route-card.selected {
+  background: #f5fbfc;
+  border-color: var(--teal-700);
+  box-shadow: 0 0 0 2px var(--teal-700), 0 10px 22px rgb(13 95 117 / 18%);
+}
+
+.route-card.selected:has(.route-select:focus-visible) {
+  box-shadow: 0 0 0 3px rgb(17 120 143 / 45%);
+}
+
+.ranking-note {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.route-card.recommended .ranking-note {
+  color: var(--teal-800);
+}
+
+/* A hover preview must never catch the pointer, or it would flicker. */
+.hover-popup {
+  pointer-events: none;
+}

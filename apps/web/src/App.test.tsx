@@ -6,6 +6,10 @@ import * as api from './api'
 import * as places from './places'
 import { planResponse } from './test/fixtures'
 
+vi.mock('./components/MapView', () => ({
+  MapView: ({ selectedId }: { selectedId: string }) => <div data-testid="map">{selectedId}</div>,
+}))
+
 const CHICAGO = { label: 'Chicago, Illinois', lat: 41.88, lon: -87.63 }
 const ST_LOUIS = { label: 'St. Louis, Missouri', lat: 38.63, lon: -90.2 }
 
@@ -44,6 +48,20 @@ describe('App', () => {
     const names = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
     expect(names).toEqual(['Route 2', 'Route 1', 'Route 3'])
     expect(screen.getByText('Chicago, Illinois')).toBeInTheDocument()
+  })
+
+  it('opens the map on the recommended route and follows the selected card', async () => {
+    vi.spyOn(api, 'planTrip').mockResolvedValue(planResponse)
+    render(<App />)
+    const user = await fillAndSubmit()
+
+    expect(await screen.findByTestId('map')).toHaveTextContent('route-2')
+
+    await user.click(screen.getByRole('button', { name: 'Route 3' }))
+
+    expect(screen.getByTestId('map')).toHaveTextContent('route-3')
+    expect(screen.getByRole('button', { name: 'Route 3' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Route 2' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('keeps the user on the form when planning fails', async () => {
