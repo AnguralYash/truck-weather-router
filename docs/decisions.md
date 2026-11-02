@@ -44,5 +44,21 @@ they were made. The brief leaves several points open; each is resolved here.
   layout as a previous project: `apps/web`, `apps/api`, and a `vercel.json`
   that routes `/api/*` to the backend.
 - **Weather:** Open-Meteo (no key, batched requests).
-- **Routing and geocoding:** OpenRouteService, pending a test that it returns
-  three alternatives on long trips. HERE Routing is the fallback.
+- **Routing:** the public Valhalla server (`valhalla1.openstreetmap.de`) with
+  its `truck` costing and the load weight passed in. It returned three
+  alternatives on medium and long trips and needs no key or billing details.
+  Alternatives considered and rejected:
+  - OpenRouteService refuses alternative routes above 100 km, which rules out
+    most truck trips.
+  - OSRM's public server returned only one or two routes on every trip tested.
+  - HERE Routing needs billing details and can bill automatically past its free
+    allowance, which is not worth the risk for a take-home project.
+- **Place search:** Photon (`photon.komoot.io`), restricted to a bounding box
+  around the contiguous US, so the form can suggest places as the user types.
+  Requests are debounced to respect the public server's fair-use limits, and
+  duplicate results (same name and state) are collapsed. Alaska and Hawaii are
+  out of scope.
+- **Known routing limits:** the public Valhalla server rejects trips over about
+  1,500 km, and may return fewer than three routes on short trips. The app
+  shows a clear message for the first case and displays however many routes
+  come back for the second. It is a shared demo server meant for light use.

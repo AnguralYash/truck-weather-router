@@ -7,8 +7,7 @@
     },
     "backend": {
       "root": "apps/api",
-      "framework": "django",
-      "entrypoint": "main:app"
+      "framework": "django"
     }
   },
   "rewrites": [
