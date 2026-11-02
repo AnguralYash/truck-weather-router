@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from .explain import explain_ranking
 from .geometry import (
     LatLon,
     arrival_time,
@@ -120,12 +121,14 @@ def plan_trip(
 
     ranked = rank_routes([r.candidate for r in results])
     rank_of = {candidate.route_id: i for i, candidate in enumerate(ranked, 1)}
+    notes = _ranking_notes(ranked)
     output = [
         {**r.payload, "rank": rank_of[r.candidate.route_id]}
         for r in sorted(results, key=lambda r: rank_of[r.candidate.route_id])
     ]
     for route in output:
         route["recommended"] = route["rank"] == 1
+        route["ranking_note"] = notes.get(route["id"])
 
     return {
         "departure_utc": departure.isoformat(),
@@ -169,6 +172,20 @@ def _to_utc(local: datetime, zone: ZoneInfo, now: datetime) -> datetime:
             "forecasts do not reach further.",
         )
     return departure
+
+
+def _ranking_notes(ranked: Sequence[RouteCandidate]) -> dict[str, str]:
+    """Why each route ranked where it did.
+
+    The best route is explained against the runner-up, the rest against the best.
+    """
+    if len(ranked) < 2:
+        return {}
+    best, runner_up = ranked[0], ranked[1]
+    notes = {best.route_id: explain_ranking(best, runner_up, is_best=True)}
+    for candidate in ranked[1:]:
+        notes[candidate.route_id] = explain_ranking(candidate, best, is_best=False)
+    return notes
 
 
 def _notice(route_count: int) -> str | None:
