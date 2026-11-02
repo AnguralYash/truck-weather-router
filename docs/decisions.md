@@ -103,3 +103,29 @@ they were made. The brief leaves several points open; each is resolved here.
   is sent to the browser, which keeps responses small.
 - **Errors use stable codes** (for example `trip_too_long`, `departure_in_past`)
   so the interface can show a clear message for each.
+
+## Interface
+
+- **A landing page explains the product before anything else.** A short hero
+  (headline, one sentence, three "how it works" steps) sits above a centered
+  trip form, so a first-time visitor knows what the tool does.
+- **The map appears only once there is something to show.** After a successful
+  plan, the page animates into a results view: a side panel with a compact trip
+  summary and the route cards, and the map filling the rest. "Edit trip" opens
+  the form in place, prefilled. On narrow screens the panel stacks above the map.
+- **The user stays on the form while planning.** Planning takes a few seconds;
+  the button shows progress steps, and if planning fails the error appears next
+  to the form instead of on an empty map.
+- **A custom date and time picker replaces the browser's own**, whose popup
+  cannot be styled. It only offers days the forecast can cover and 30-minute
+  time slots.
+- **Motion is short and purposeful** (entrance fades, the panel sliding in) and
+  is switched off when the system asks for reduced motion.
+- **Each route has its own color, and checkpoint dots show risk.** The
+  recommended route is drawn thicker and carries a badge. Risk colors are used
+  only for checkpoint dots and the heatmap, so the two never get confused.
+- **Checkpoint details open in a popup on the map** (arrival time, wind, rain,
+  snow, risk level). Route cards stay short: distance, travel time, miles at
+  each risk level, and warnings.
+- **Place search runs in the browser** against Photon with a short delay after
+  typing, so the Django API only does the planning.
