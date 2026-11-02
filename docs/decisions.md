@@ -80,3 +80,26 @@ they were made. The brief leaves several points open; each is resolved here.
   1,500 km, and may return fewer than three routes on short trips. The app
   shows a clear message for the first case and displays however many routes
   come back for the second. It is a shared demo server meant for light use.
+
+## Planner and API
+
+- **Arrival times assume a constant average speed** over each route, using the
+  route's total duration from the routing service. Arrival times are reported
+  in UTC and shown in the origin's time zone.
+- **Load weight affects weather risk only.** Routes come from the standard
+  truck profile with default vehicle dimensions; they are not checked against
+  weight limits or low bridges.
+- **Load weight must be between 1 and 80,000 lb**, the US federal limit for a
+  loaded truck.
+- **Departures are accepted from the current hour up to 13 days ahead**, so the
+  trip and the 48-hour slider stay inside the 16-day forecast.
+- **Rain is Open-Meteo's `rain` plus `showers`**, and snow is its `snowfall`
+  (depth of fresh snow, not water equivalent), both converted to inches per hour.
+- **The heatmap samples a band around every route**: points every 10 miles
+  along each route and 10 miles to each side, merged onto a grid of about 14
+  miles. The grid coarsens automatically so a trip never needs more than 150
+  weather locations for the heatmap.
+- **Route geometry is thinned** to points at least half a mile apart before it
+  is sent to the browser, which keeps responses small.
+- **Errors use stable codes** (for example `trip_too_long`, `departure_in_past`)
+  so the interface can show a clear message for each.
