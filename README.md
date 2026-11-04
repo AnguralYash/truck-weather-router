@@ -8,7 +8,6 @@ will actually be at each point, rates the risk for the driver's load weight, and
 recommends the safest route that does not cost needless time.
 
 **Live app:** https://truck-weather-router-gamma.vercel.app
-**Walkthrough video:** _added to the submission email_
 
 ## What it does
 
