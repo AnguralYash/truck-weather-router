@@ -24,6 +24,14 @@ const STEPS = [
   },
 ]
 
+function Credit({ href, children }: { href: string; children: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  )
+}
+
 export function Landing({ busy, busyLabel, error, onPlan }: Props) {
   return (
     <div className="landing">
@@ -60,8 +68,15 @@ export function Landing({ busy, busyLabel, error, onPlan }: Props) {
       </section>
 
       <footer className="credits">
-        Routing by Valhalla · Weather by Open-Meteo · Search by Photon · Map data ©
-        OpenStreetMap contributors
+        <Credit href="https://open-meteo.com/">Weather data by Open-Meteo.com</Credit>
+        {' · '}
+        <Credit href="https://valhalla.openstreetmap.de/">Routing by Valhalla</Credit>
+        {' · '}
+        <Credit href="https://photon.komoot.io/">Place search by Photon</Credit>
+        {' · '}
+        <Credit href="https://www.openstreetmap.org/copyright">
+          Map data © OpenStreetMap contributors
+        </Credit>
       </footer>
     </div>
   )

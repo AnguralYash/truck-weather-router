@@ -93,3 +93,12 @@ def test_a_clear_time_gap_is_not_called_a_tie() -> None:
     assert explain_ranking(slower, best, is_best=False) == (
         "Same weather risk, but 10 min slower than the recommended route."
     )
+
+
+def test_when_every_route_has_no_travel_the_best_is_the_one_with_least() -> None:
+    best = candidate("route-2", no_travel=5)
+    other = candidate("route-1", no_travel=20)
+
+    assert explain_ranking(best, other, is_best=True) == (
+        "Least time in No Travel conditions: 5 mi vs 20 mi on Route 1."
+    )

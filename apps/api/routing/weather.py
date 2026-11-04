@@ -1,5 +1,6 @@
 """Hourly forecasts from Open-Meteo, fetched in parallel batches."""
 
+import time
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -15,6 +16,11 @@ from .risk import Weather
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 BATCH_SIZE = 100
 HOURLY_VARIABLES = "wind_speed_10m,rain,showers,snowfall"
+
+# The free forecast service limits how many locations can be requested per day, so
+# recent forecasts are remembered. Entries live for the life of a server instance.
+CACHE_TTL_S = 30 * 60
+CACHE_MAX_ENTRIES = 3000
 
 
 class WeatherError(Exception):
@@ -42,15 +48,66 @@ class HourlySeries:
         )
 
 
+_FORECASTS: dict[tuple[float, float, str, str], tuple[float, "HourlySeries"]] = {}
+
+
+def _cache_key(point: LatLon, start: datetime, end: datetime):
+    """Locations are matched to about a kilometre, and days are matched exactly."""
+    return (
+        round(point.lat, 2),
+        round(point.lon, 2),
+        start.astimezone(UTC).date().isoformat(),
+        end.astimezone(UTC).date().isoformat(),
+    )
+
+
+def _remember(key, series: "HourlySeries") -> None:
+    now = time.monotonic()
+    if len(_FORECASTS) >= CACHE_MAX_ENTRIES:
+        for old in [
+            k for k, (stored, _) in _FORECASTS.items() if now - stored > CACHE_TTL_S
+        ]:
+            del _FORECASTS[old]
+        while len(_FORECASTS) >= CACHE_MAX_ENTRIES:
+            del _FORECASTS[next(iter(_FORECASTS))]  # oldest first
+    _FORECASTS[key] = (now, series)
+
+
 def fetch_hourly(
     points: Sequence[LatLon],
     start: datetime,
     end: datetime,
     client: httpx.Client | None = None,
 ) -> list[HourlySeries]:
-    """Hourly weather for every point, covering the UTC days from `start` to `end`."""
+    """Hourly weather for every point, covering the UTC days from `start` to `end`.
+
+    Only locations without a recent forecast are requested from the service.
+    """
     if not points:
         return []
+    now = time.monotonic()
+    keys = [_cache_key(point, start, end) for point in points]
+    found: dict[int, HourlySeries] = {}
+    for index, key in enumerate(keys):
+        entry = _FORECASTS.get(key)
+        if entry and now - entry[0] <= CACHE_TTL_S:
+            found[index] = entry[1]
+
+    missing = [i for i in range(len(points)) if i not in found]
+    if missing:
+        fetched = _fetch_missing([points[i] for i in missing], start, end, client)
+        for index, series in zip(missing, fetched, strict=True):
+            found[index] = series
+            _remember(keys[index], series)
+    return [found[i] for i in range(len(points))]
+
+
+def _fetch_missing(
+    points: Sequence[LatLon],
+    start: datetime,
+    end: datetime,
+    client: httpx.Client | None,
+) -> list[HourlySeries]:
     batches = [points[i : i + BATCH_SIZE] for i in range(0, len(points), BATCH_SIZE)]
     owns_client = client is None
     http = client or httpx.Client(timeout=30)

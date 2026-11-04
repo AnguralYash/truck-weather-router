@@ -56,6 +56,14 @@ export interface HeatmapCell {
   levels: number[]
 }
 
+export interface Heatmap {
+  /** Hours after departure covered by the forecast slider. */
+  hours: number
+  /** Width of one heatmap cell in degrees, so the glow can match the grid. */
+  cell_degrees: number
+  cells: HeatmapCell[]
+}
+
 export interface PlanResponse {
   departure_utc: string
   timezone: string
@@ -64,5 +72,5 @@ export interface PlanResponse {
   recommended_route_id: string
   notice: string | null
   routes: Route[]
-  heatmap: { hours: number; cells: HeatmapCell[] }
+  heatmap: Heatmap
 }

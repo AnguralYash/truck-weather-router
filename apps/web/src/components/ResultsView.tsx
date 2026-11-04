@@ -5,6 +5,7 @@ import { routeColor, routeNumber } from '../risk'
 import type { PlanRequest, PlanResponse } from '../types'
 import { BrandMark } from './BrandMark'
 import { RouteCard } from './RouteCard'
+import { HeatmapControl } from './HeatmapControl'
 import { TripForm } from './TripForm'
 
 const MapView = lazy(() => import('./MapView').then((module) => ({ default: module.MapView })))
@@ -20,13 +21,20 @@ interface Props {
 
 export function ResultsView({ request, result, busy, busyLabel, error, onPlan }: Props) {
   const [editing, setEditing] = useState(false)
+  const [hour, setHour] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [heatVisible, setHeatVisible] = useState(true)
   const [choice, setChoice] = useState<{ result: PlanResponse; id: string } | null>(null)
   // A new result starts again on its recommended route.
   const selectedId = choice?.result === result ? choice.id : result.recommended_route_id
   const select = (id: string) => setChoice({ result, id })
 
   const replan = async (next: PlanRequest) => {
-    if (await onPlan(next)) setEditing(false)
+    if (await onPlan(next)) {
+      setEditing(false)
+      setHour(0)
+      setPlaying(false)
+    }
   }
 
   return (
@@ -98,9 +106,26 @@ export function ResultsView({ request, result, busy, busyLabel, error, onPlan }:
             routes={result.routes}
             selectedId={selectedId}
             timezone={result.timezone}
+            heatmap={result.heatmap}
+            hour={hour}
+            heatVisible={heatVisible}
             onSelect={select}
           />
         </Suspense>
+        <HeatmapControl
+          hours={result.heatmap.hours}
+          hour={hour}
+          onHourChange={setHour}
+          playing={playing}
+          onPlayingChange={setPlaying}
+          visible={heatVisible}
+          onVisibleChange={(show) => {
+            setHeatVisible(show)
+            if (!show) setPlaying(false)
+          }}
+          departureUtc={result.departure_utc}
+          timezone={result.timezone}
+        />
       </main>
     </div>
   )

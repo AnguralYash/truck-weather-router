@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { boundsOf, checkpointPopup, checkpointsGeoJSON, routesGeoJSON } from './mapData'
+import {
+  boundsOf,
+  checkpointPopup,
+  checkpointsGeoJSON,
+  heatmapGeoJSON,
+  heatmapRadius,
+  heatmapWeight,
+  routesGeoJSON,
+} from './mapData'
 import { planResponse, route } from './test/fixtures'
 import type { Checkpoint } from './types'
 
@@ -80,5 +88,39 @@ describe('checkpointPopup', () => {
     const popup = checkpointPopup({ ...checkpoint, level: 'LOW' }, 'America/Chicago')
 
     expect(popup.querySelector('script')).toBeNull()
+  })
+})
+
+describe('heatmap helpers', () => {
+  const heatmap = {
+    hours: 2,
+    cell_degrees: 0.2,
+    cells: [
+      { lat: 41.8, lon: -87.6, levels: [1, 3, 5] },
+      { lat: 41.6, lon: -87.8, levels: [2, 2, 4] },
+    ],
+  }
+
+  it('gives every hour its own numeric property, because arrays do not survive tiling', () => {
+    const collection = heatmapGeoJSON(heatmap)
+
+    expect(collection.features[0].properties).toEqual({ h0: 1, h1: 3, h2: 5 })
+    expect(collection.features[0].geometry.coordinates).toEqual([-87.6, 41.8])
+    expect(collection.features[1].properties).toEqual({ h0: 2, h1: 2, h2: 4 })
+  })
+
+  it('weights a cell by its risk level at the chosen hour', () => {
+    expect(heatmapWeight(1)).toEqual(['/', ['coalesce', ['get', 'h1'], 1], 5])
+  })
+
+  it('sizes the glow to the cell width and doubles it with every zoom level', () => {
+    const [, , , zoomLow, radiusLow, zoomHigh, radiusHigh] = heatmapRadius(0.36) as unknown as [
+      string, unknown, unknown, number, number, number, number,
+    ]
+
+    // 0.36 degrees at 512 px per world is 0.512 px; the glow spans two cells.
+    expect(zoomLow).toBe(0)
+    expect(radiusLow).toBeCloseTo(1.024)
+    expect(radiusHigh / radiusLow).toBeCloseTo(2 ** zoomHigh)
   })
 })

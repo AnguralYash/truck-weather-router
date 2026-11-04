@@ -116,6 +116,18 @@ they were made. The brief leaves several points open; each is resolved here.
   half a second and then one second. The weather service returned "overloaded"
   during development, and without retries a good trip would have failed. Other
   errors are reported straight away.
+- **The free weather service has daily limits, so the app asks for as little as
+  it can.** Open-Meteo's free tier allows 10,000 calls a day, 5,000 an hour and
+  600 a minute, shared by every visitor, and a request for many locations may
+  count once per location. Two measures keep a trip cheap: the heatmap uses at
+  most 80 cells (about 80 locations instead of 150), and forecasts are remembered
+  for 30 minutes, matched to about a kilometre and the same days, so repeated or
+  overlapping trips only request what is new. The cache lives in each server
+  instance's memory, so it helps while an instance stays warm and is not a
+  guarantee. A coarser grid makes the heatmap smoother and less detailed on long
+  trips; the checkpoint dots stay exact.
+- **The weather data is credited with a link** on the landing page and beside the
+  heatmap, as the service's license requires.
 - **Time zone lookups are remembered** for the life of the server process, keyed
   to about a kilometre, which removes one outside call from repeat trips.
 - **Errors use stable codes** (for example `trip_too_long`, `departure_in_past`)
@@ -133,6 +145,25 @@ they were made. The brief leaves several points open; each is resolved here.
 - **The user stays on the form while planning.** Planning takes a few seconds;
   the button shows progress steps, and if planning fails the error appears next
   to the form instead of on an empty map.
+- **The heatmap is MapLibre's heatmap layer, drawn under the routes.** Each cell's
+  weight is its risk level as a share of the scale, and the color ramp runs through
+  the same Low to No Travel colors as the legend. Neighbouring cells blend, so a
+  single risky cell between safe ones reads slightly cooler than its own level;
+  the checkpoint dots stay exact.
+- **The heatmap and the dots answer different questions.** The slider shows the
+  risk across the corridor at a chosen hour after departure. The dots show the
+  risk at the moment the truck actually arrives, so the card says so.
+- **The slider changes one paint expression and loads nothing.** The forecast for
+  all 49 hours arrives once with the plan, as one numeric property per hour,
+  because MapLibre turns array properties into text when it cuts GeoJSON into
+  tiles. On a long trip with 140 cells the JavaScript for one slider change
+  measures about 2 ms (worst case 8 ms); the rest is drawing, which a graphics
+  card handles.
+- **The glow is sized from the grid.** The backend reports the cell width, and the
+  radius is two cells wide and scales with the zoom, so the band stays continuous
+  at every scale without a hand-tuned number per zoom level.
+- **Play steps through the forecast an hour at a time** and stops at the end.
+  Dragging the slider or hiding the heatmap stops it.
 - **A custom date and time picker replaces the browser's own**, whose popup
   cannot be styled. It only offers days the forecast can cover and 30-minute
   time slots.
@@ -148,6 +179,13 @@ they were made. The brief leaves several points open; each is resolved here.
   drawn thickest and on top, the others are thinner and faded but still visible,
   and only the selected route's checkpoint dots are shown. Clicking a route card
   or a route line on the map changes the selection.
+- **Every route carries a label on the map** with its name, distance, and drive
+  time, and the recommended route a star, so the route summaries are on the map
+  itself and not only in the side panel. The labels sit at different points along
+  each route (35%, 50%, and 65% of the way), so routes that share a road do not
+  stack them. A label is a button: choosing it selects the route, and it works
+  from a keyboard and a screen reader. The cards keep the fuller summary (miles at
+  each risk level and the ranking reason).
 - **Checkpoint details open in a popup built with DOM calls**, not an HTML
   string, so nothing from the API is ever parsed as markup.
 - **The map code is loaded only when results are shown**, so the landing page

@@ -1,7 +1,8 @@
+import type { ExpressionSpecification } from 'maplibre-gl'
 import type { FeatureCollection, LineString, Point } from 'geojson'
 import { formatEta } from './datetime'
 import { riskByName, routeColor } from './risk'
-import type { Checkpoint, Route } from './types'
+import type { Checkpoint, Heatmap, Route } from './types'
 
 type LngLat = [number, number]
 
@@ -100,4 +101,55 @@ export function checkpointPopup(checkpoint: Checkpoint, timeZone: string): HTMLE
     row('Snow', `${checkpoint.snow_in_per_hr.toFixed(2)} in/hr`, checkpoint.snow_level),
   )
   return root
+}
+
+/**
+ * Heatmap cells as points. MapLibre cuts GeoJSON into tiles, which turns array
+ * properties into text, so each hour gets its own numeric property: `h0`, `h1`, ...
+ */
+export function heatmapGeoJSON(heatmap: Heatmap): FeatureCollection<Point> {
+  return {
+    type: 'FeatureCollection',
+    features: heatmap.cells.map((cell) => ({
+      type: 'Feature',
+      properties: Object.fromEntries(cell.levels.map((level, hour) => [`h${hour}`, level])),
+      geometry: { type: 'Point', coordinates: [cell.lon, cell.lat] },
+    })),
+  }
+}
+
+const MAX_RISK_LEVEL = 5
+
+/** Weight of a cell at one hour: its risk level as a share of the worst level. */
+export function heatmapWeight(hour: number): ExpressionSpecification {
+  return ['/', ['coalesce', ['get', `h${hour}`], 1], MAX_RISK_LEVEL]
+}
+
+const ZOOMS = { min: 0, max: 14 }
+
+/**
+ * MapLibre draws the world 512 pixels wide at zoom 0, so one degree spans
+ * 512 * 2^zoom / 360 pixels.
+ */
+const WORLD_PIXELS = 512
+
+/**
+ * Its blur kernel is a third of the radius, so a radius of twice the cell width
+ * makes neighbouring cells blend into a continuous band without smearing a
+ * risky stretch over its safe neighbours.
+ */
+const RADIUS_IN_CELLS = 2
+
+/** Glow radius in pixels, growing with the zoom so the glow always spans the same cells. */
+export function heatmapRadius(cellDegrees: number): ExpressionSpecification {
+  const pixelsAtZoomZero = (cellDegrees * WORLD_PIXELS * RADIUS_IN_CELLS) / 360
+  return [
+    'interpolate',
+    ['exponential', 2],
+    ['zoom'],
+    ZOOMS.min,
+    pixelsAtZoomZero,
+    ZOOMS.max,
+    pixelsAtZoomZero * 2 ** ZOOMS.max,
+  ]
 }

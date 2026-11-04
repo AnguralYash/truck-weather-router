@@ -45,9 +45,9 @@ def explain_ranking(
     if is_best:
         name = _route(other)
         reasons = {
-            "no_travel": "Avoids No Travel conditions: "
-            f"{_miles(mine.no_travel_miles)} vs {_miles(theirs.no_travel_miles)} "
-            f"on {name}.",
+            "no_travel": f"{'Least time in' if mine.no_travel_miles else 'Avoids'} "
+            f"No Travel conditions: {_miles(mine.no_travel_miles)} vs "
+            f"{_miles(theirs.no_travel_miles)} on {name}.",
             "severe": "Fewest Severe-risk miles: "
             f"{_miles(mine.severe_miles)} vs {_miles(theirs.severe_miles)} on {name}.",
             "high": "Fewest High-risk miles: "

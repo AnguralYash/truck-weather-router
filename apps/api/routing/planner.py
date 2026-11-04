@@ -41,7 +41,7 @@ MAX_DAYS_AHEAD = 13  # keeps departure + trip + 48 h inside the 16-day forecast
 HEATMAP_HOURS = 48
 HEATMAP_STEP_MILES = 10
 HEATMAP_HALF_WIDTH_MILES = 10
-HEATMAP_MAX_CELLS = 150
+HEATMAP_MAX_CELLS = 80
 GEOMETRY_MIN_GAP_MILES = 0.5
 US_BOUNDS = (24.0, 50.0, -125.0, -66.0)  # south, north, west, east
 
@@ -95,7 +95,7 @@ def plan_trip(
         raise PlanError("upstream_unavailable", str(error), 502) from error
 
     routes = [_Geometry.from_option(i, option) for i, option in enumerate(options, 1)]
-    heat_points = _heatmap_points(routes)
+    heat_points, cell_degrees = _heatmap_points(routes)
     checkpoint_points = [
         point for route in routes for point in route.checkpoint_points(request)
     ]
@@ -115,7 +115,9 @@ def plan_trip(
             _assess_route(route, request, departure, checkpoint_series)
             for route in routes
         ]
-        heatmap = _heatmap(heat_points, heat_series, departure, request.load_lb)
+        heatmap = _heatmap(
+            heat_points, cell_degrees, heat_series, departure, request.load_lb
+        )
     except WeatherError as error:
         raise PlanError("weather_unavailable", error.args[0], 502) from error
 
@@ -283,8 +285,11 @@ def _assess_route(
     return _RouteResult(candidate, payload)
 
 
-def _heatmap_points(routes: Sequence[_Geometry]) -> list[LatLon]:
-    """Sample a band around every route, then merge samples onto a coarse grid."""
+def _heatmap_points(routes: Sequence[_Geometry]) -> tuple[list[LatLon], float]:
+    """Sample a band around every route, then merge samples onto a coarse grid.
+
+    Returns the cell centres and the cell size in degrees.
+    """
     samples: list[LatLon] = []
     for route in routes:
         miles = [*_frange(0, route.total_miles, HEATMAP_STEP_MILES), route.total_miles]
@@ -306,7 +311,8 @@ def _heatmap_points(routes: Sequence[_Geometry]) -> list[LatLon]:
         if len(cells) <= HEATMAP_MAX_CELLS:
             break
         grid *= 1.5
-    return [LatLon(round(i * grid, 4), round(j * grid, 4)) for i, j in sorted(cells)]
+    centres = [LatLon(round(i * grid, 4), round(j * grid, 4)) for i, j in sorted(cells)]
+    return centres, round(grid, 4)
 
 
 def _frange(start: float, stop: float, step: float) -> list[float]:
@@ -320,6 +326,7 @@ def _frange(start: float, stop: float, step: float) -> list[float]:
 
 def _heatmap(
     points: Sequence[LatLon],
+    cell_degrees: float,
     series: Sequence[HourlySeries],
     departure: datetime,
     load_lb: float,
@@ -331,4 +338,4 @@ def _heatmap(
             for h in range(HEATMAP_HOURS + 1)
         ]
         cells.append({"lat": point.lat, "lon": point.lon, "levels": levels})
-    return {"hours": HEATMAP_HOURS, "cells": cells}
+    return {"hours": HEATMAP_HOURS, "cell_degrees": cell_degrees, "cells": cells}
