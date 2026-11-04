@@ -48,5 +48,5 @@ export const planResponse: PlanResponse = {
       summary: { miles_by_level: miles(290, 0, 10), average_risk: 1.13, has_no_travel: true },
     }),
   ],
-  heatmap: { hours: 48, cells: [] },
+  heatmap: { hours: 48, cell_degrees: 0.2, cells: [] },
 }
