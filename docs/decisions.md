@@ -179,6 +179,13 @@ they were made. The brief leaves several points open; each is resolved here.
   drawn thickest and on top, the others are thinner and faded but still visible,
   and only the selected route's checkpoint dots are shown. Clicking a route card
   or a route line on the map changes the selection.
+- **Every route carries a label on the map** with its name, distance, and drive
+  time, and the recommended route a star, so the route summaries are on the map
+  itself and not only in the side panel. The labels sit at different points along
+  each route (35%, 50%, and 65% of the way), so routes that share a road do not
+  stack them. A label is a button: choosing it selects the route, and it works
+  from a keyboard and a screen reader. The cards keep the fuller summary (miles at
+  each risk level and the ranking reason).
 - **Checkpoint details open in a popup built with DOM calls**, not an HTML
   string, so nothing from the API is ever parsed as markup.
 - **The map code is loaded only when results are shown**, so the landing page
