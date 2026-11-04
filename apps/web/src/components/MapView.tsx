@@ -10,9 +10,17 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 // Bundled through Vite so the production build ships the worker next to the app.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useEffect, useRef, useState } from 'react'
-import { boundsOf, checkpointPopup, checkpointsGeoJSON, routesGeoJSON } from '../mapData'
+import {
+  boundsOf,
+  checkpointPopup,
+  checkpointsGeoJSON,
+  heatmapGeoJSON,
+  heatmapRadius,
+  heatmapWeight,
+  routesGeoJSON,
+} from '../mapData'
 import { RISK_LEVELS } from '../risk'
-import type { Route } from '../types'
+import type { Heatmap, Route } from '../types'
 
 maplibregl.setWorkerUrl(workerUrl)
 
@@ -25,18 +33,57 @@ const FALLBACK_STYLE: StyleSpecification = {
   layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#dfe8ec' } }],
 }
 
+/**
+ * Scales the summed glow. One cell contributes about 0.4 of its weight at its centre,
+ * and a radius of two cells makes a uniform area sum to about 2.5 cells' worth, so
+ * 0.9 makes an area of one risk level come out near that level's share of the scale.
+ */
+const HEAT_INTENSITY = 0.9
+
 const SELECTED: ExpressionSpecification = ['==', ['get', 'selected'], 1]
 
 interface Props {
   routes: Route[]
   selectedId: string
   timezone: string
+  heatmap: Heatmap
+  hour: number
+  heatVisible: boolean
   onSelect: (routeId: string) => void
 }
 
+/** Density to color: transparent, then the risk colors from Low to No Travel. */
+const HEAT_COLORS: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['heatmap-density'],
+  0,
+  'rgba(47, 158, 68, 0)',
+  0.08,
+  'rgba(47, 158, 68, 0.35)',
+  0.22,
+  'rgba(47, 158, 68, 0.6)',
+  0.4,
+  'rgba(242, 194, 0, 0.7)',
+  0.6,
+  'rgba(240, 140, 0, 0.78)',
+  0.8,
+  'rgba(224, 49, 49, 0.85)',
+  1,
+  'rgba(92, 15, 60, 0.9)',
+]
+
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export function MapView({ routes, selectedId, timezone, onSelect }: Props) {
+export function MapView({
+  routes,
+  selectedId,
+  timezone,
+  heatmap,
+  hour,
+  heatVisible,
+  onSelect,
+}: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const ready = useRef(false)
@@ -47,9 +94,9 @@ export function MapView({ routes, selectedId, timezone, onSelect }: Props) {
   const [backgroundFailed, setBackgroundFailed] = useState(false)
 
   // The data and callbacks the map reads from event handlers and style reloads.
-  const latest = useRef({ routes, selectedId, timezone, onSelect })
+  const latest = useRef({ routes, selectedId, timezone, heatmap, hour, heatVisible, onSelect })
   useEffect(() => {
-    latest.current = { routes, selectedId, timezone, onSelect }
+    latest.current = { routes, selectedId, timezone, heatmap, hour, heatVisible, onSelect }
   })
 
   useEffect(() => {
@@ -126,6 +173,21 @@ export function MapView({ routes, selectedId, timezone, onSelect }: Props) {
       if (instance.getSource('routes')) return
       instance.addSource('routes', { type: 'geojson', data: routesGeoJSON([], '') })
       instance.addSource('checkpoints', { type: 'geojson', data: checkpointsGeoJSON(undefined) })
+      instance.addSource('heat', { type: 'geojson', data: heatmapGeoJSON(latest.current.heatmap) })
+      // Under the routes, so lines and dots stay readable on top of the colors.
+      instance.addLayer({
+        id: 'heat',
+        type: 'heatmap',
+        source: 'heat',
+        layout: { visibility: latest.current.heatVisible ? 'visible' : 'none' },
+        paint: {
+          'heatmap-weight': heatmapWeight(latest.current.hour),
+          'heatmap-radius': heatmapRadius(latest.current.heatmap.cell_degrees),
+          'heatmap-intensity': HEAT_INTENSITY,
+          'heatmap-color': HEAT_COLORS,
+          'heatmap-opacity': 0.85,
+        },
+      })
       const line: LineLayerSpecification['layout'] = {
         'line-cap': 'round',
         'line-join': 'round',
@@ -276,6 +338,28 @@ export function MapView({ routes, selectedId, timezone, onSelect }: Props) {
       actions.current?.fit()
     }
   }, [routes, selectedId])
+
+  // The slider only changes one paint expression: no data is reloaded, so it stays smooth.
+  useEffect(() => {
+    const instance = map.current
+    if (!instance?.getLayer('heat')) return
+    instance.setPaintProperty('heat', 'heatmap-weight', heatmapWeight(hour))
+  }, [hour])
+
+  useEffect(() => {
+    const instance = map.current
+    if (!instance?.getLayer('heat')) return
+    instance.setLayoutProperty('heat', 'visibility', heatVisible ? 'visible' : 'none')
+  }, [heatVisible])
+
+  // A new plan brings new cells, and possibly a new cell size.
+  useEffect(() => {
+    const instance = map.current
+    const source = instance?.getSource('heat') as GeoJSONSource | undefined
+    if (!instance || !source) return
+    source.setData(heatmapGeoJSON(heatmap))
+    instance.setPaintProperty('heat', 'heatmap-radius', heatmapRadius(heatmap.cell_degrees))
+  }, [heatmap])
 
   return (
     <div className="map-wrap">
