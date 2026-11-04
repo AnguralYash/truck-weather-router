@@ -20,6 +20,7 @@ import {
   routesGeoJSON,
 } from '../mapData'
 import { RISK_LEVELS } from '../risk'
+import { labelFraction, pointAlong, routeChip } from '../routeLabels'
 import type { Heatmap, Route } from '../types'
 
 maplibregl.setWorkerUrl(workerUrl)
@@ -88,7 +89,11 @@ export function MapView({
   const map = useRef<maplibregl.Map | null>(null)
   const ready = useRef(false)
   const interacted = useRef(false)
-  const actions = useRef<{ addPins: () => void; fit: (animate?: boolean) => void } | null>(null)
+  const actions = useRef<{
+    addPins: () => void
+    syncLabels: () => void
+    fit: (animate?: boolean) => void
+  } | null>(null)
   const shownRoutes = useRef(routes)
   const popups = useRef<{ pinned: maplibregl.Popup; hover: maplibregl.Popup } | null>(null)
   const [backgroundFailed, setBackgroundFailed] = useState(false)
@@ -123,6 +128,7 @@ export function MapView({
     })
     popups.current = { pinned, hover }
     let pins: maplibregl.Marker[] = []
+    let labels: maplibregl.Marker[] = []
 
     const sync = () => {
       const { routes: current, selectedId: selected } = latest.current
@@ -149,6 +155,20 @@ export function MapView({
       })
     }
 
+    // Each route carries a label with its distance and drive time, so the summary is on the map.
+    const syncLabels = () => {
+      labels.forEach((label) => label.remove())
+      const { routes: current, selectedId: selected } = latest.current
+      labels = current.map((route) => {
+        const chip = routeChip(route, route.id === selected, () => latest.current.onSelect(route.id))
+        chip.style.zIndex = route.id === selected ? '2' : '1'
+        const spot = pointAlong(route.geometry, labelFraction(route.id))
+        return new maplibregl.Marker({ element: chip, anchor: 'center' })
+          .setLngLat([spot.lon, spot.lat])
+          .addTo(instance)
+      })
+    }
+
     const fit = (animate = true) => {
       const bounds = boundsOf(latest.current.routes)
       if (!bounds) return
@@ -161,7 +181,7 @@ export function MapView({
         { padding: 70, duration: animate && !prefersReducedMotion() ? 900 : 0, maxZoom: 11 },
       )
     }
-    actions.current = { addPins, fit }
+    actions.current = { addPins, syncLabels, fit }
 
     // Once the user pans or zooms, leave the view alone.
     instance.on('dragstart', () => (interacted.current = true))
@@ -241,6 +261,7 @@ export function MapView({
     instance.once('style.load', () => {
       ready.current = true
       addPins()
+      syncLabels()
       fit()
     })
 
@@ -253,6 +274,7 @@ export function MapView({
         instance.once('style.load', () => {
           ready.current = true
           addPins()
+          syncLabels()
           fit()
         })
       } else {
@@ -313,6 +335,7 @@ export function MapView({
       hover.remove()
       popups.current = null
       pins.forEach((pin) => pin.remove())
+      labels.forEach((label) => label.remove())
       instance.remove()
       map.current = null
       actions.current = null
@@ -331,6 +354,7 @@ export function MapView({
     dotSource?.setData(checkpointsGeoJSON(routes.find((route) => route.id === selectedId)))
     popups.current?.pinned.remove()
     popups.current?.hover.remove()
+    actions.current?.syncLabels()
     // A new plan moves the pins and brings the whole trip back into view.
     if (shownRoutes.current !== routes) {
       shownRoutes.current = routes
