@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -7,7 +7,11 @@ import * as places from './places'
 import { planResponse } from './test/fixtures'
 
 vi.mock('./components/MapView', () => ({
-  MapView: ({ selectedId }: { selectedId: string }) => <div data-testid="map">{selectedId}</div>,
+  MapView: ({ selectedId, hour }: { selectedId: string; hour: number }) => (
+    <div data-testid="map">
+      {selectedId} hour {hour}
+    </div>
+  ),
 }))
 
 const CHICAGO = { label: 'Chicago, Illinois', lat: 41.88, lon: -87.63 }
@@ -38,6 +42,19 @@ describe('App', () => {
     expect(screen.getByText('Check weather on arrival')).toBeInTheDocument()
   })
 
+  it('credits the services it depends on with links', () => {
+    render(<App />)
+
+    expect(screen.getByRole('link', { name: 'Weather data by Open-Meteo.com' })).toHaveAttribute(
+      'href',
+      'https://open-meteo.com/',
+    )
+    expect(screen.getByRole('link', { name: /OpenStreetMap contributors/ })).toHaveAttribute(
+      'href',
+      'https://www.openstreetmap.org/copyright',
+    )
+  })
+
   it('moves to the results with routes in rank order', async () => {
     vi.spyOn(api, 'planTrip').mockResolvedValue(planResponse)
     render(<App />)
@@ -62,6 +79,19 @@ describe('App', () => {
     expect(screen.getByTestId('map')).toHaveTextContent('route-3')
     expect(screen.getByRole('button', { name: 'Route 3' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Route 2' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('passes the forecast hour from the slider to the map', async () => {
+    vi.spyOn(api, 'planTrip').mockResolvedValue(planResponse)
+    render(<App />)
+    await fillAndSubmit()
+    expect(await screen.findByTestId('map')).toHaveTextContent('hour 0')
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Hours after departure' }), {
+      target: { value: '2' },
+    })
+
+    expect(screen.getByTestId('map')).toHaveTextContent('hour 2')
   })
 
   it('keeps the user on the form when planning fails', async () => {
