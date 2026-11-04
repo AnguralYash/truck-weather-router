@@ -124,6 +124,7 @@ def test_heatmap_has_a_risk_level_for_every_hour() -> None:
 
     heatmap = result["heatmap"]
     assert heatmap["hours"] == 48
+    assert heatmap["cell_degrees"] == pytest.approx(0.2)
     assert 0 < len(heatmap["cells"]) <= HEATMAP_MAX_CELLS
     assert all(len(cell["levels"]) == 49 for cell in heatmap["cells"])
     assert all(level == 1 for cell in heatmap["cells"] for level in cell["levels"])
