@@ -171,3 +171,100 @@ def test_timezone_is_looked_up_once_per_place() -> None:
     lookup_timezone(LatLon(41.8779, -87.6301), client)
 
     assert len(calls) == 1
+
+
+def counting_client(counter: list[int]) -> httpx.Client:
+    def handler(request: httpx.Request) -> httpx.Response:
+        count = len(request.url.params["latitude"].split(","))
+        counter.append(count)
+        return httpx.Response(200, json=[location([1], [0], [0], [0])] * count)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_the_same_forecast_is_not_requested_twice() -> None:
+    requested: list[int] = []
+    client = counting_client(requested)
+    points = [LatLon(41.0, -87.0), LatLon(40.0, -88.0)]
+
+    first = fetch_hourly(points, START, START, client)
+    second = fetch_hourly(points, START, START, client)
+
+    assert requested == [2]
+    assert second == first
+
+
+def test_only_new_locations_are_requested() -> None:
+    requested: list[int] = []
+    client = counting_client(requested)
+
+    fetch_hourly([LatLon(41.0, -87.0)], START, START, client)
+    series = fetch_hourly(
+        [LatLon(41.0, -87.0), LatLon(35.0, -90.0), LatLon(36.0, -91.0)],
+        START,
+        START,
+        client,
+    )
+
+    assert requested == [1, 2]
+    assert len(series) == 3
+
+
+def test_nearby_locations_share_a_forecast() -> None:
+    requested: list[int] = []
+    client = counting_client(requested)
+
+    fetch_hourly([LatLon(41.0001, -87.0001)], START, START, client)
+    fetch_hourly([LatLon(41.0030, -87.0030)], START, START, client)
+
+    assert requested == [1]
+
+
+def test_forecasts_for_other_days_are_not_reused() -> None:
+    requested: list[int] = []
+    client = counting_client(requested)
+
+    fetch_hourly([LatLon(41.0, -87.0)], START, START, client)
+    fetch_hourly(
+        [LatLon(41.0, -87.0)],
+        START + timedelta(days=1),
+        START + timedelta(days=1),
+        client,
+    )
+
+    assert requested == [1, 1]
+
+
+def test_old_forecasts_are_requested_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    requested: list[int] = []
+    client = counting_client(requested)
+    clock = {"now": 1000.0}
+    monkeypatch.setattr("routing.weather.time.monotonic", lambda: clock["now"])
+
+    fetch_hourly([LatLon(41.0, -87.0)], START, START, client)
+    clock["now"] += 31 * 60
+    fetch_hourly([LatLon(41.0, -87.0)], START, START, client)
+
+    assert requested == [1, 1]
+
+
+def test_a_failed_request_is_not_remembered() -> None:
+    requested: list[int] = []
+    good = counting_client(requested)
+
+    with pytest.raises(WeatherError):
+        fetch_hourly([LatLon(41.0, -87.0)], START, START, client_for({}, status=500))
+    fetch_hourly([LatLon(41.0, -87.0)], START, START, good)
+
+    assert requested == [1]
+
+
+def test_the_cache_never_grows_past_its_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    from routing import weather
+
+    monkeypatch.setattr(weather, "CACHE_MAX_ENTRIES", 5)
+    client = counting_client([])
+
+    fetch_hourly([LatLon(30 + i * 0.5, -90) for i in range(12)], START, START, client)
+
+    assert len(weather._FORECASTS) <= 5
