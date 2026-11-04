@@ -20,7 +20,7 @@ import {
   routesGeoJSON,
 } from '../mapData'
 import { RISK_LEVELS } from '../risk'
-import { labelFraction, pointAlong, routeChip } from '../routeLabels'
+import { labelFractionFor, pointAlong, routeChip, separateLabels } from '../routeLabels'
 import type { Heatmap, Route } from '../types'
 
 maplibregl.setWorkerUrl(workerUrl)
@@ -128,7 +128,7 @@ export function MapView({
     })
     popups.current = { pinned, hover }
     let pins: maplibregl.Marker[] = []
-    let labels: maplibregl.Marker[] = []
+    let labels: { id: string; marker: maplibregl.Marker; element: HTMLElement }[] = []
 
     const sync = () => {
       const { routes: current, selectedId: selected } = latest.current
@@ -155,18 +155,39 @@ export function MapView({
       })
     }
 
+    // Labels that land on top of each other are spread out: the selected route's label
+    // stays on its line and the others take the nearest free spot above or below.
+    const separate = () => {
+      const { selectedId: selected } = latest.current
+      const ordered = [...labels].sort(
+        (a, b) => Number(b.id === selected) - Number(a.id === selected) || a.id.localeCompare(b.id),
+      )
+      const shifts = separateLabels(
+        ordered.map(({ id, marker, element }) => {
+          const point = instance.project(marker.getLngLat())
+          return { id, x: point.x, y: point.y, width: element.offsetWidth, height: element.offsetHeight }
+        }),
+      )
+      for (const { id, marker } of labels) marker.setOffset([0, shifts[id] ?? 0])
+    }
+
     // Each route carries a label with its distance and drive time, so the summary is on the map.
     const syncLabels = () => {
-      labels.forEach((label) => label.remove())
+      labels.forEach(({ marker }) => marker.remove())
       const { routes: current, selectedId: selected } = latest.current
       labels = current.map((route) => {
-        const chip = routeChip(route, route.id === selected, () => latest.current.onSelect(route.id))
-        chip.style.zIndex = route.id === selected ? '2' : '1'
-        const spot = pointAlong(route.geometry, labelFraction(route.id))
-        return new maplibregl.Marker({ element: chip, anchor: 'center' })
+        const element = routeChip(route, route.id === selected, () =>
+          latest.current.onSelect(route.id),
+        )
+        element.style.zIndex = route.id === selected ? '2' : '1'
+        const others = current.filter((other) => other.id !== route.id)
+        const spot = pointAlong(route.geometry, labelFractionFor(route, others))
+        const marker = new maplibregl.Marker({ element, anchor: 'center' })
           .setLngLat([spot.lon, spot.lat])
           .addTo(instance)
+        return { id: route.id, marker, element }
       })
+      separate()
     }
 
     const fit = (animate = true) => {
@@ -323,6 +344,9 @@ export function MapView({
     })
 
     // The map area changes size while the page animates in; keep the trip in view until the user moves the map.
+    // Zooming changes how far apart the labels are on screen.
+    instance.on('moveend', separate)
+
     const resizer = new ResizeObserver(() => {
       instance.resize()
       if (ready.current && !interacted.current) fit(false)
@@ -335,7 +359,7 @@ export function MapView({
       hover.remove()
       popups.current = null
       pins.forEach((pin) => pin.remove())
-      labels.forEach((label) => label.remove())
+      labels.forEach(({ marker }) => marker.remove())
       instance.remove()
       map.current = null
       actions.current = null

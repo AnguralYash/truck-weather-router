@@ -130,6 +130,9 @@ they were made. The brief leaves several points open; each is resolved here.
   heatmap, as the service's license requires.
 - **Time zone lookups are remembered** for the life of the server process, keyed
   to about a kilometre, which removes one outside call from repeat trips.
+- **No secret key ships in the code.** Django needs a key even though this API
+  signs nothing. It is read from `DJANGO_SECRET_KEY`, and a random one is made at
+  startup when that is not set.
 - **Errors use stable codes** (for example `trip_too_long`, `departure_in_past`)
   so the interface can show a clear message for each.
 
@@ -181,11 +184,17 @@ they were made. The brief leaves several points open; each is resolved here.
   or a route line on the map changes the selection.
 - **Every route carries a label on the map** with its name, distance, and drive
   time, and the recommended route a star, so the route summaries are on the map
-  itself and not only in the side panel. The labels sit at different points along
-  each route (35%, 50%, and 65% of the way), so routes that share a road do not
-  stack them. A label is a button: choosing it selects the route, and it works
+  itself and not only in the side panel. A label goes on the stretch of its route
+  that is furthest from the other routes, because on a shared road it would look
+  as if it belonged to whichever line is drawn on top; a route that is shared all
+  the way keeps a default spot (35%, 50%, or 65% of the way, by route). A label is
+  a button: choosing it selects the route, and it works
   from a keyboard and a screen reader. The cards keep the fuller summary (miles at
   each risk level and the ranking reason).
+- **Labels that would cover each other are spread apart on screen.** After the
+  labels are placed, any that overlap are moved up or down to the nearest free spot,
+  with the selected route's label always keeping its place on its line. This is
+  checked again after every pan or zoom, because distances on screen change.
 - **Checkpoint details open in a popup built with DOM calls**, not an HTML
   string, so nothing from the API is ever parsed as markup.
 - **The map code is loaded only when results are shown**, so the landing page
